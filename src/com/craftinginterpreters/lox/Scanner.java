@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.craftinginterpreters.lox.TokenTypes.*;
+import static com.craftinginterpreters.lox.TokenType.*;
 
 public class Scanner {
     private final String source;
@@ -15,7 +15,7 @@ public class Scanner {
     private int line = 1;
     private boolean nested = false;
     private int nestedComment = 0;
-    private static final Map<String, TokenTypes> keywords;
+    private static final Map<String, TokenType> keywords;
     static {
         keywords = new HashMap<>();
         keywords.put("and",    AND);
@@ -34,6 +34,7 @@ public class Scanner {
         keywords.put("true",   TRUE);
         keywords.put("var",    VAR);
         keywords.put("while",  WHILE);
+        keywords.put("break", BREAK);
     }
     Scanner(String source) {
         this.source = source;
@@ -136,7 +137,7 @@ public class Scanner {
     private void identifier() {
         while (isAlphaNumeric(peek())) advance();
         String text = source.substring(start, current);
-        TokenTypes type = keywords.get(text);
+        TokenType type = keywords.get(text);
         if (type == null) type = IDENTIFIER;
         addToken(type);
     }
@@ -181,11 +182,11 @@ public class Scanner {
         return source.charAt(current - 1);
     }
 
-    private void addToken(TokenTypes type) {
+    private void addToken(TokenType type) {
         addToken(type, null);
     }
 
-    private void addToken(TokenTypes type, Object literal) {
+    private void addToken(TokenType type, Object literal) {
         String text = source.substring(start, current);
         tokens.add(new Token(type, text, literal, line));
     }
@@ -226,7 +227,13 @@ public class Scanner {
         if (peek() != '/') return false;
         return peekNext() == '*';
     }
-    private boolean dotCommentFinish() {
+
+    /**
+     * @return true if the comment is finished
+     * We use peek() first to check if this token is a comment
+     * then we use peekNext() to check if the comment is finished
+     */
+    private boolean dotCommentFinish() { // to check if the comment is finished
         if (peek() != '*') return false;
         return peekNext() == '/';
     }
