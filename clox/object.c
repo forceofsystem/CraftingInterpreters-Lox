@@ -1,5 +1,6 @@
 #include "object.h"
 #include "memory.h"
+#include "table.h"
 #include "value.h"
 #include "vm.h"
 
@@ -27,6 +28,7 @@ allocateString(char *chars, int length, uint32_t hash)
   string->length = length;
   string->chars = chars;
   string->hash = hash;
+  tableSet(&vm.strings, string, NIL_VAL);
   return string;
 }
 
@@ -54,6 +56,9 @@ ObjString *
 copyString(const char *chars, int length)
 {
   uint32_t hash = hashString(chars, length);
+  ObjString *interned = tableFindString(&vm.strings, chars, length, hash);
+  if (interned != NULL)
+    return interned;
   char *heapChars = ALLOCATE(char, length + 1);
   memcpy(heapChars, chars, length);
   heapChars[length] = '\0';

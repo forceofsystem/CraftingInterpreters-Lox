@@ -1,4 +1,4 @@
-obj = main.o chunk.o debug.o memory.o value.o vm.o scanner.o compiler.o object.o
+obj = main.o chunk.o debug.o memory.o value.o vm.o scanner.o compiler.o object.o table.o
 
 clox : $(obj)
 	$(CC) -o clox $(obj) -g
@@ -30,8 +30,8 @@ compiler.o : compiler.c
 object.o : object.c
 	$(CC) -c object.c -g
 
-# table.o : table.c
-#     $(CC) -c table.c -g
+table.o : table.c
+	$(CC) -c table.c -g
 
 run : clox
 	./clox

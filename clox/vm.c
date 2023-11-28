@@ -4,6 +4,7 @@
 #include "compiler.h"
 #include "debug.h"
 #include "memory.h"
+#include "table.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -95,6 +96,7 @@ run()
 {
 #define READ_BYTE() (*vm.ip++)
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
+#define READ_STRING() AS_STRING(READ_CONSTANT())
 #define BINARY_OP(valueType, op)                                              \
   do                                                                          \
   {                                                                           \
@@ -125,8 +127,6 @@ run()
     {
     case OP_RETURN:
     {
-      printValue(pop());
-      printf("\n");
       return INTERPRET_OK;
     }
     case OP_CONSTANT:
@@ -153,6 +153,28 @@ run()
     case OP_FALSE:
       push(BOOL_VAL(false));
       break;
+    case OP_POP:
+      pop();
+      break;
+    case OP_GET_GLOBAL:
+    {
+      ObjString *name = READ_STRING();
+      Value value;
+      if (!tableGet(&vm.globals, name, &value))
+      {
+        runtimeError("Undefined variable '%s'.", name->chars);
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      push(value);
+      break;
+    }
+    case OP_DEFINE_GLOBAL:
+    {
+      ObjString *name = READ_STRING();
+      tableSet(&vm.globals, name, peek(0));
+      pop();
+      break;
+    }
     case OP_EQUAL:
     {
       Value b = pop();
@@ -197,6 +219,12 @@ run()
     case OP_NOT:
       push(BOOL_VAL(isFalsey(pop())));
       break;
+    case OP_PRINT:
+    {
+      printValue(pop());
+      printf("\n");
+      break;
+    }
     case OP_NEGATE:
     {
       if (!IS_NUMBER(peek(0)))
@@ -208,6 +236,7 @@ run()
     }
 #undef READ_BYTE
 #undef READ_CONSTANT
+#undef READ_STRING
 #undef BINARY_OP
     }
   }
@@ -218,12 +247,15 @@ initVM()
 {
   resetStack();
   vm.objects = NULL;
+  initTable(&vm.strings);
 }
 
 void
 freeVM()
 {
+  freeTable(&vm.strings);
   freeObjects();
+  freeTable(&vm.globals);
 }
 
 InterpretResult
