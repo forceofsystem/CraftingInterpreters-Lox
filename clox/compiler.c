@@ -33,7 +33,7 @@ typedef enum
   PREC_PRIMARY
 } Precedence;
 
-typedef void (*ParseFn)();
+typedef void (*ParseFn)(bool canAssign);
 
 typedef struct
 {
@@ -200,7 +200,7 @@ defineVariable(uint8_t global)
 }
 
 static void
-binary()
+binary(bool canAssign)
 {
   TokenType operatorType = parser.previous.type;
   ParseRule *rule = getRule(operatorType);
@@ -244,7 +244,7 @@ binary()
 }
 
 static void
-literal()
+literal(bool canAssign)
 {
   switch (parser.previous.type)
   {
@@ -263,7 +263,7 @@ literal()
 }
 
 static void
-grouping()
+grouping(bool canAssign)
 {
   expression();
   consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
@@ -271,34 +271,42 @@ grouping()
 
 static void emitConstant(Value value);
 static void
-number()
+number(bool canAssign)
 {
   double value = strtod(parser.previous.start, NULL);
   emitConstant(NUMBER_VAL(value));
 }
 
 static void
-string()
+string(bool canAssign)
 {
   emitConstant(OBJ_VAL(
       copyString(parser.previous.start + 1, parser.previous.length - 2)));
 }
 
 static void
-namedVariable(Token name)
+namedVariable(Token name, bool canAssign)
 {
-  uint8_t arg = parseVariable("Expect variable name.");
-  emitBytes(OP_GET_GLOBAL, arg);
+  uint8_t arg = identifierConstant(&name);
+  if (canAssign && match(TOKEN_EQUAL))
+  {
+    expression();
+    emitBytes(OP_SET_GLOBAL, arg);
+  }
+  else
+  {
+    emitBytes(OP_GET_GLOBAL, arg);
+  }
 }
 
 static void
-variable()
+variable(bool canAssign)
 {
-  namedVariable(parser.previous);
+  namedVariable(parser.previous, canAssign);
 }
 
 static void
-unary()
+unary(bool canAssign)
 {
   TokenType operatorType = parser.previous.type;
 
@@ -373,13 +381,18 @@ parsePrecedence(Precedence precedence)
     return;
   }
 
-  prefixRule();
+  bool canAssign = precedence <= PREC_ASSIGNMENT;
+  prefixRule(canAssign);
 
   while (precedence <= getRule(parser.current.type)->precedence)
   {
     advance();
     ParseFn infixRule = getRule(parser.previous.type)->infix;
-    infixRule();
+    infixRule(canAssign);
+  }
+  if (canAssign && match(TOKEN_EQUAL))
+  {
+    error("Invalid assignment target.");
   }
 }
 
@@ -402,6 +415,14 @@ expression()
 }
 
 static void
+expressionStatement()
+{
+  expression();
+  consume(TOKEN_SEMICOLON, "Expect ';' after expression.");
+  emitByte(OP_POP);
+}
+
+static void
 varDeclaration()
 {
   uint8_t global = parseVariable("Expect variable name.");
@@ -416,6 +437,36 @@ varDeclaration()
   consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
 
   defineVariable(global);
+}
+
+static void
+synchronize()
+{
+  parser.panicMode = false;
+
+  while (parser.current.type != TOKEN_EOF)
+  {
+    if (parser.previous.type == TOKEN_SEMICOLON)
+      return;
+
+    switch (parser.current.type)
+    {
+    case TOKEN_CLASS:
+    case TOKEN_FUN:
+    case TOKEN_VAR:
+    case TOKEN_FOR:
+    case TOKEN_IF:
+    case TOKEN_WHILE:
+    case TOKEN_PRINT:
+    case TOKEN_RETURN:
+      return;
+    default:
+        // Do nothing.
+        ;
+    }
+
+    advance();
+  }
 }
 
 static void
@@ -437,6 +488,8 @@ declaration()
   {
     statement();
   }
+  if (parser.panicMode)
+    synchronize();
 }
 
 static void
@@ -445,6 +498,10 @@ statement()
   if (match(TOKEN_PRINT))
   {
     printStatement();
+  }
+  else
+  {
+    expressionStatement();
   }
 }
 
