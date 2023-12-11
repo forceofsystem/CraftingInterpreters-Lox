@@ -34,7 +34,7 @@ table.o : table.c
 	$(CC) -c table.c -g
 
 run : clox
-	./clox
+	./clox test.lox
 
 .PHONY : clean
 clean :

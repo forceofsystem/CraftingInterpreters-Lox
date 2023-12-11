@@ -11,7 +11,7 @@
 
 typedef struct
 {
-  ObjFunction *function;
+  ObjClosure *closure;
   uint8_t *ip;
   Value *slots;
 } CallFrame;
@@ -22,9 +22,16 @@ typedef struct
   int frameCount;
   Value stack[STACK_MAX];
   Value *stackTop;
+  size_t bytesAllocated;
+  size_t nextGC;
   Obj *objects;
   Table strings;
+  ObjString *initString;
+  ObjUpvalue *openUpvalues;
   Table globals;
+  int grayCount;
+  int grayCapacity;
+  Obj **grayStack;
 } VM;
 
 typedef enum
