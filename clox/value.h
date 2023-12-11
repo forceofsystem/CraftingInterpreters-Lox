@@ -14,7 +14,7 @@ typedef struct ObjString ObjString;
 #define TAG_NIL 1 // 01
 #define TAG_FALSE 2
 #define TAG_TRUE 3
-tyepdef uint64_t Value;
+typedef uint64_t Value;
 
 #define IS_BOOL(value) (((value) | 1) == TRUE_VAL)
 #define IS_NIL(value) ((value) == NIL_VAL)
